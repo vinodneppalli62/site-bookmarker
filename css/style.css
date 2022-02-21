@@ -1,0 +1,109 @@
+html,
+body {
+  height: 100%;
+  width:100%;
+}
+
+body {
+  display: flex;
+  align-items: center;
+}
+
+.bookmark {
+  width: 100%;
+  max-width: 350px;
+  padding: 15px;
+  margin: auto;
+}
+
+.bookmark .form-group:focus-within {
+  z-index: 2;
+}
+
+.bookmark input#siteName{
+  text-transform:capitalize;
+  margin-bottom: 10px;
+  border-bottom-right-radius: 0;
+  border-bottom-left-radius: 0;
+}
+
+.bookmark input#siteUrl {
+  margin-bottom: 10px;
+  border-top-left-radius: 0;
+  border-top-right-radius: 0;
+}
+
+.bookmark #bookmarkResults {
+    margin-top: 10px; 
+}
+
+#website-name {
+    color: white;
+    text-shadow: 1px 1px 2px black, 0 0 25px blue, 0 0 5px darkblue;
+    margin-top :10px;
+}
+
+div.bg-light{
+    border-radius: 5px;
+    --bs-bg-opacity: 0;
+}
+
+.multicolortext {
+    background-image: linear-gradient(to left, rgb(245, 16, 245), rgb(8, 248, 8), rgb(10, 17, 1), rgb(248, 81, 3), red);
+    -webkit-background-clip: text;
+    -moz-background-clip: text;
+    background-clip: text;
+    color: transparent;
+}
+
+.background{
+    background-image: url("/images/bookmark-bg-blue.jpeg");
+    height: -webkit-fill-available;
+    width: -webkit-fill-available;
+    background-position: center;
+    background-repeat: no-repeat;
+    background-size: cover;
+    overflow-y: auto;
+}
+
+.btn-group{
+  padding-top :10px;
+}
+.btn-group button{
+  margin: 5px;
+}
+
+#bookmark-save, #bookmark-import ,#bookmark-export {
+  display: inline-block;
+  padding: 8px 20px;
+  font-size: 15px;
+  cursor: pointer;
+  text-align: center;
+  text-decoration: none;
+  outline: none;
+  color: #fff;
+  background-color: #4CAF50;
+  border: none;
+  border-radius: 15px;
+  box-shadow: 0 5px #999;
+}
+
+#bookmark-save :hover, #bookmark-export:hover, #bookmark-import:hover{background-color: #3e8e41}
+
+#bookmark-save :active, #bookmark-export:active, #bookmark-export:active {
+  background-color: #3e8e41;
+  box-shadow: 0 5px #666;
+  transform: translateY(4px);
+}
+
+label[for="#bookmark-csv-file"], label[for="#bookmark-html-file"] {
+  cursor: pointer;
+}
+
+#bookmark-csv-file, #bookmark-html-file {
+  color: white;
+  opacity: 0;
+  position: absolute;
+  z-index: -1;
+}
+
