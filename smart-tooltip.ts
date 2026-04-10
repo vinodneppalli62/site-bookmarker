@@ -108,3 +108,27 @@ export class SmartTooltipDirective implements AfterViewInit, OnDestroy {
     this.tooltipEl.style.visibility = 'visible';
   }
 }
+
+.smart-tooltip {
+  position: fixed;              /* <<< THE KEY FIX */
+  z-index: 999999;
+  background: #222;
+  color: #fff;
+  padding: 6px 10px;
+  border-radius: 4px;
+  font-size: 12px;
+
+  white-space: nowrap;
+  max-width: none !important;
+
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity .15s ease;
+}
+
+.smart-tooltip.show {
+  opacity: 1;
+}
+
+.smart-tooltip.top { transform-origin: bottom center; }
+.smart-tooltip.bottom { transform-origin: top center; }
