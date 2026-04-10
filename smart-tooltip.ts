@@ -1,134 +1,193 @@
 import {
   Directive,
   ElementRef,
-  Input,
-  HostListener,
+  Renderer2,
   AfterViewInit,
   OnDestroy
 } from '@angular/core';
 
 @Directive({
-  selector: '[smartTooltip]'
+  selector: '[tooltipDir]'
 })
-export class SmartTooltipDirective implements AfterViewInit, OnDestroy {
+export class TooltipDirective implements AfterViewInit, OnDestroy {
 
-  @Input('smartTooltip') tooltipText = '';
-
-  private tooltipEl!: HTMLDivElement;
+  private tooltipEl: HTMLElement | null = null;
   private animationFrameId: number | null = null;
 
-  constructor(private host: ElementRef<HTMLElement>) {}
+  private headerFocusListener: (() => void)[] = [];
+  private headerBlurListener: (() => void)[] = [];
+  private headerKeyListener: (() => void)[] = [];
+
+  private elementFocusListener: () => void;
+  private elementBlurListener: () => void;
+  private elementKeyListener: () => void;
+
+  constructor(private el: ElementRef, private renderer: Renderer2) {}
 
   ngAfterViewInit() {
-    this.createTooltip();
+
+    // -----------------------------
+    // AG-GRID HEADER TOOLTIP SUPPORT
+    // -----------------------------
+    if (this.el.nativeElement.hasAttribute('tooltipDir')) {
+      const headers = this.el.nativeElement.querySelectorAll('.ag-header-cell');
+
+      headers.forEach((header: HTMLElement) => {
+
+        this.headerFocusListener.push(
+          this.renderer.listen(header, 'focus', () => {
+            this.showTooltip(header, header.getAttribute('aria-label'));
+          })
+        );
+
+        this.headerBlurListener.push(
+          this.renderer.listen(header, 'blur', () => {
+            this.hideTooltip();
+          })
+        );
+
+        this.headerKeyListener.push(
+          this.renderer.listen(header, 'keydown', (event: KeyboardEvent) => {
+            if (event.key === 'Escape' || event.key === 'Enter') {
+              this.hideTooltip();
+            }
+          })
+        );
+      });
+    }
+
+    // -----------------------------
+    // NORMAL ELEMENT TOOLTIP SUPPORT
+    // -----------------------------
+    const focusable = this.findClosestFocusable(this.el.nativeElement);
+
+    if (focusable) {
+      this.elementFocusListener = this.renderer.listen(focusable, 'focus', () => {
+        const title = this.el.nativeElement.getAttribute('title');
+        this.showTooltip(focusable, title);
+      });
+
+      this.elementBlurListener = this.renderer.listen(focusable, 'blur', () => {
+        this.hideTooltip();
+      });
+
+      this.elementKeyListener = this.renderer.listen(focusable, 'keydown', (event: KeyboardEvent) => {
+        if (event.key === 'Escape' || event.key === 'Enter') {
+          this.hideTooltip();
+        }
+      });
+    }
   }
 
-  ngOnDestroy() {
-    if (this.tooltipEl) this.tooltipEl.remove();
+  // ----------------------------------------------------
+  // CREATE + SHOW TOOLTIP
+  // ----------------------------------------------------
+  private showTooltip(target: HTMLElement, text: string | null) {
+    if (!text) return;
+
+    this.hideTooltip(); // remove old tooltip
+
+    this.tooltipEl = this.renderer.createElement('div');
+    this.renderer.addClass(this.tooltipEl, 'dynamic-tooltip');
+    this.renderer.setStyle(this.tooltipEl, 'position', 'fixed');
+    this.renderer.setStyle(this.tooltipEl, 'z-index', '999999');
+    this.renderer.setStyle(this.tooltipEl, 'background', '#222');
+    this.renderer.setStyle(this.tooltipEl, 'color', '#fff');
+    this.renderer.setStyle(this.tooltipEl, 'padding', '6px 10px');
+    this.renderer.setStyle(this.tooltipEl, 'border-radius', '4px');
+    this.renderer.setStyle(this.tooltipEl, 'white-space', 'nowrap');
+    this.renderer.setStyle(this.tooltipEl, 'opacity', '0');
+    this.renderer.setStyle(this.tooltipEl, 'transition', 'opacity .15s ease');
+
+    const textNode = this.renderer.createText(text);
+    this.renderer.appendChild(this.tooltipEl, textNode);
+    this.renderer.appendChild(document.body, this.tooltipEl);
+
+    this.startTracking(target);
+    setTimeout(() => this.renderer.setStyle(this.tooltipEl, 'opacity', '1'), 10);
+  }
+
+  // ----------------------------------------------------
+  // HIDE TOOLTIP
+  // ----------------------------------------------------
+  private hideTooltip() {
     if (this.animationFrameId) cancelAnimationFrame(this.animationFrameId);
+    this.animationFrameId = null;
+
+    if (this.tooltipEl) {
+      this.renderer.removeChild(document.body, this.tooltipEl);
+      this.tooltipEl = null;
+    }
   }
 
-  private createTooltip() {
-    this.tooltipEl = document.createElement('div');
-    this.tooltipEl.className = 'smart-tooltip';
-    this.tooltipEl.innerText = this.tooltipText;
-    document.body.appendChild(this.tooltipEl);
-  }
-
-  @HostListener('focus')
-  onFocus() {
-    this.tooltipEl.classList.add('show');
-    this.startTracking();
-  }
-
-  @HostListener('blur')
-  onBlur() {
-    this.tooltipEl.classList.remove('show');
-    this.stopTracking();
-  }
-
-  private startTracking() {
+  // ----------------------------------------------------
+  // FRAME-SYNCED POSITION TRACKING
+  // ----------------------------------------------------
+  private startTracking(target: HTMLElement) {
     const update = () => {
-      if (this.tooltipEl.classList.contains('show')) {
-        this.positionTooltip();
-        this.animationFrameId = requestAnimationFrame(update);
-      }
+      if (!this.tooltipEl) return;
+
+      this.positionTooltip(target, this.tooltipEl);
+      this.animationFrameId = requestAnimationFrame(update);
     };
     update();
   }
 
-  private stopTracking() {
-    if (this.animationFrameId) {
-      cancelAnimationFrame(this.animationFrameId);
-      this.animationFrameId = null;
-    }
-  }
+  // ----------------------------------------------------
+  // POSITION TOOLTIP (FIXED + CLAMPED + AUTO-FLIP)
+  // ----------------------------------------------------
+  private positionTooltip(target: HTMLElement, tooltip: HTMLElement) {
+    const rect = target.getBoundingClientRect();
+    const tipRect = tooltip.getBoundingClientRect();
 
-  private positionTooltip() {
-    const trigger = this.host.nativeElement;
-    const tRect = trigger.getBoundingClientRect();
+    let top = rect.bottom + 8;
+    let left = rect.left + rect.width / 2 - tipRect.width / 2;
 
-    this.tooltipEl.style.visibility = 'hidden';
-    this.tooltipEl.style.display = 'block';
-
-    const pRect = this.tooltipEl.getBoundingClientRect();
-
-    const spaceTop = tRect.top;
-    const spaceBottom = window.innerHeight - tRect.bottom;
-
-    let direction: 'top' | 'bottom' = 'bottom';
-    if (spaceTop >= pRect.height + 8) direction = 'top';
-    else if (spaceBottom >= pRect.height + 8) direction = 'bottom';
-    else direction = spaceTop > spaceBottom ? 'top' : 'bottom';
-
-    this.tooltipEl.classList.remove('top', 'bottom');
-    this.tooltipEl.classList.add(direction);
-
-    let top = 0;
-    let left = tRect.left + tRect.width / 2 - pRect.width / 2;
-
-    if (direction === 'top') {
-      top = tRect.top - pRect.height - 8;
-    } else {
-      top = tRect.bottom + 8;
+    // Auto-flip top if no space below
+    if (rect.top >= tipRect.height + 8) {
+      top = rect.top - tipRect.height - 8;
     }
 
-    const vw = window.innerWidth;
-    const vh = window.innerHeight;
-
+    // Clamp horizontally
     if (left < 4) left = 4;
-    if (left + pRect.width > vw - 4) left = vw - pRect.width - 4;
+    if (left + tipRect.width > window.innerWidth - 4) {
+      left = window.innerWidth - tipRect.width - 4;
+    }
 
+    // Clamp vertically
     if (top < 4) top = 4;
-    if (top + pRect.height > vh - 4) top = vh - pRect.height - 4;
+    if (top + tipRect.height > window.innerHeight - 4) {
+      top = window.innerHeight - tipRect.height - 4;
+    }
 
-    this.tooltipEl.style.top = `${top}px`;
-    this.tooltipEl.style.left = `${left}px`;
+    this.renderer.setStyle(tooltip, 'top', `${top}px`);
+    this.renderer.setStyle(tooltip, 'left', `${left}px`);
+  }
 
-    this.tooltipEl.style.visibility = 'visible';
+  // ----------------------------------------------------
+  // FIND FOCUSABLE ELEMENT
+  // ----------------------------------------------------
+  private findClosestFocusable(el: HTMLElement): HTMLElement | null {
+    const tags = ['INPUT', 'SELECT', 'BUTTON', 'TEXTAREA'];
+
+    if (tags.includes(el.tagName)) return el;
+    if (el.parentElement && tags.includes(el.parentElement.tagName)) return el.parentElement;
+
+    return el;
+  }
+
+  // ----------------------------------------------------
+  // CLEANUP
+  // ----------------------------------------------------
+  ngOnDestroy() {
+    this.hideTooltip();
+
+    this.headerFocusListener.forEach(fn => fn());
+    this.headerBlurListener.forEach(fn => fn());
+    this.headerKeyListener.forEach(fn => fn());
+
+    if (this.elementFocusListener) this.elementFocusListener();
+    if (this.elementBlurListener) this.elementBlurListener();
+    if (this.elementKeyListener) this.elementKeyListener();
   }
 }
-
-.smart-tooltip {
-  position: fixed;              /* <<< THE KEY FIX */
-  z-index: 999999;
-  background: #222;
-  color: #fff;
-  padding: 6px 10px;
-  border-radius: 4px;
-  font-size: 12px;
-
-  white-space: nowrap;
-  max-width: none !important;
-
-  opacity: 0;
-  pointer-events: none;
-  transition: opacity .15s ease;
-}
-
-.smart-tooltip.show {
-  opacity: 1;
-}
-
-.smart-tooltip.top { transform-origin: bottom center; }
-.smart-tooltip.bottom { transform-origin: top center; }
