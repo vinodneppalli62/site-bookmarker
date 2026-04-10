@@ -14,16 +14,23 @@ export class SmartTooltipDirective implements AfterViewInit, OnDestroy {
 
   @Input('smartTooltip') tooltipText = '';
 
-  private tooltipEl!: HTMLElement;
+  private tooltipEl!: HTMLDivElement;
+  private scrollParents: HTMLElement[] = [];
+  private scrollHandlers: Array<() => void> = [];
 
-  constructor(private host: ElementRef) {}
+  constructor(private host: ElementRef<HTMLElement>) {}
 
   ngAfterViewInit() {
     this.createTooltip();
+    this.findScrollParents(this.host.nativeElement);
+    this.attachScrollListeners();
   }
 
   ngOnDestroy() {
-    if (this.tooltipEl) this.tooltipEl.remove();
+    if (this.tooltipEl) {
+      this.tooltipEl.remove();
+    }
+    this.detachScrollListeners();
   }
 
   private createTooltip() {
@@ -33,21 +40,54 @@ export class SmartTooltipDirective implements AfterViewInit, OnDestroy {
     document.body.appendChild(this.tooltipEl);
   }
 
+  private findScrollParents(el: HTMLElement) {
+    let parent = el.parentElement;
+    while (parent) {
+      const style = getComputedStyle(parent);
+      const overflowY = style.overflowY;
+      const overflowX = style.overflowX;
+
+      if (/(auto|scroll)/.test(overflowY) || /(auto|scroll)/.test(overflowX)) {
+        this.scrollParents.push(parent);
+      }
+      parent = parent.parentElement;
+    }
+  }
+
+  private attachScrollListeners() {
+    this.scrollParents.forEach(parent => {
+      const handler = () => {
+        if (this.tooltipEl.classList.contains('show')) {
+          this.positionTooltip();
+        }
+      };
+      parent.addEventListener('scroll', handler);
+      this.scrollHandlers.push(() => parent.removeEventListener('scroll', handler));
+    });
+  }
+
+  private detachScrollListeners() {
+    this.scrollHandlers.forEach(fn => fn());
+    this.scrollHandlers = [];
+  }
+
   @HostListener('focus')
   onFocus() {
+    if (!this.tooltipEl) return;
     this.tooltipEl.classList.add('show');
     this.positionTooltip();
   }
 
   @HostListener('blur')
   onBlur() {
+    if (!this.tooltipEl) return;
     this.tooltipEl.classList.remove('show');
   }
 
   @HostListener('window:scroll')
   @HostListener('window:resize')
   onLayoutChange() {
-    if (this.tooltipEl.classList.contains('show')) {
+    if (this.tooltipEl && this.tooltipEl.classList.contains('show')) {
       this.positionTooltip();
     }
   }
@@ -55,79 +95,60 @@ export class SmartTooltipDirective implements AfterViewInit, OnDestroy {
   private positionTooltip() {
     const trigger = this.host.nativeElement;
     const tRect = trigger.getBoundingClientRect();
+
+    // Make tooltip visible to measure correctly
+    this.tooltipEl.style.visibility = 'hidden';
+    this.tooltipEl.style.display = 'block';
+
     const pRect = this.tooltipEl.getBoundingClientRect();
 
-    const space = {
-      top: tRect.top,
-      bottom: window.innerHeight - tRect.bottom,
-      left: tRect.left,
-      right: window.innerWidth - tRect.right
-    };
+    const spaceTop = tRect.top;
+    const spaceBottom = window.innerHeight - tRect.bottom;
 
-    const fits = {
-      top: space.top >= pRect.height + 10,
-      bottom: space.bottom >= pRect.height + 10,
-      left: space.left >= pRect.width + 10,
-      right: space.right >= pRect.width + 10
-    };
-
-    let direction = 'bottom';
-    if (fits.top) direction = 'top';
-    else if (fits.bottom) direction = 'bottom';
-    else if (fits.left) direction = 'left';
-    else if (fits.right) direction = 'right';
-    else {
-      direction = Object.entries(space).sort((a, b) => b[1] - a[1])[0][0];
+    let direction: 'top' | 'bottom' = 'bottom';
+    if (spaceTop >= pRect.height + 8) {
+      direction = 'top';
+    } else if (spaceBottom >= pRect.height + 8) {
+      direction = 'bottom';
+    } else {
+      direction = spaceTop > spaceBottom ? 'top' : 'bottom';
     }
 
-    this.tooltipEl.classList.remove('top', 'bottom', 'left', 'right');
+    this.tooltipEl.classList.remove('top', 'bottom');
     this.tooltipEl.classList.add(direction);
 
-    let top = 0, left = 0;
+    let top = 0;
+    let left = tRect.left + tRect.width / 2 - pRect.width / 2;
 
-    switch (direction) {
-      case 'top':
-        top = tRect.top - pRect.height - 8;
-        left = tRect.left + tRect.width / 2 - pRect.width / 2;
-        break;
-      case 'bottom':
-        top = tRect.bottom + 8;
-        left = tRect.left + tRect.width / 2 - pRect.width / 2;
-        break;
-      case 'left':
-        top = tRect.top + tRect.height / 2 - pRect.height / 2;
-        left = tRect.left - pRect.width - 8;
-        break;
-      case 'right':
-        top = tRect.top + tRect.height / 2 - pRect.height / 2;
-        left = tRect.right + 8;
-        break;
+    if (direction === 'top') {
+      top = tRect.top - pRect.height - 8;
+    } else {
+      top = tRect.bottom + 8;
+    }
+
+    // Viewport boundaries
+    const vw = window.innerWidth;
+    const vh = window.innerHeight;
+
+    // Horizontal clamp
+    if (left < 4) {
+      left = 4;
+    }
+    if (left + pRect.width > vw - 4) {
+      left = vw - pRect.width - 4;
+    }
+
+    // Vertical clamp
+    if (top < 4) {
+      top = 4;
+    }
+    if (top + pRect.height > vh - 4) {
+      top = vh - pRect.height - 4;
     }
 
     this.tooltipEl.style.top = `${top}px`;
     this.tooltipEl.style.left = `${left}px`;
+
+    this.tooltipEl.style.visibility = 'visible';
   }
 }
-
-.smart-tooltip {
-  position: absolute;
-  z-index: 99999;
-  background: #333;
-  color: #fff;
-  padding: 6px 10px;
-  border-radius: 4px;
-  font-size: 12px;
-  max-width: 240px;
-  opacity: 0;
-  pointer-events: none;
-  transition: opacity .15s ease;
-}
-
-.smart-tooltip.show {
-  opacity: 1;
-}
-
-.smart-tooltip.top { transform-origin: bottom center; }
-.smart-tooltip.bottom { transform-origin: top center; }
-.smart-tooltip.left { transform-origin: center right; }
-.smart-tooltip.right { transform-origin: center left; }
