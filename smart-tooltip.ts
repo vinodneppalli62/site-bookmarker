@@ -25,9 +25,9 @@ export class TooltipDirective implements AfterViewInit, OnDestroy {
       this.renderer.setAttribute(native, 'tabindex', '0');
     }
 
-    // -----------------------------
-    // AG-GRID HEADER SUPPORT
-    // -----------------------------
+    // ----------------------------------------------------
+    // 1. AG-GRID HEADER SUPPORT → attachListeners() called here
+    // ----------------------------------------------------
     const headers = native.querySelectorAll('.ag-header-cell');
     headers.forEach((header: HTMLElement) => {
       this.attachListeners(header, () => {
@@ -38,13 +38,15 @@ export class TooltipDirective implements AfterViewInit, OnDestroy {
       });
     });
 
-    // -----------------------------
-    // NORMAL + CUSTOM COMPONENT SUPPORT
-    // -----------------------------
+    // ----------------------------------------------------
+    // 2. NORMAL + CUSTOM COMPONENT SUPPORT → attachListeners() called here
+    // ----------------------------------------------------
     this.attachListeners(native, () => this.extractTooltipText(native));
   }
 
+  // ----------------------------------------------------
   // Extract tooltip text from host or deep children
+  // ----------------------------------------------------
   private extractTooltipText(root: HTMLElement): string | null {
     // 1. Direct attributes
     let text =
@@ -65,15 +67,17 @@ export class TooltipDirective implements AfterViewInit, OnDestroy {
     if (sr && sr.textContent?.trim()) return sr.textContent.trim();
 
     // 5. Fallback: visible text inside component
-    const textNode = root.querySelector('*:not([aria-hidden="true"])');
-    if (textNode && textNode.textContent?.trim()) {
-      return textNode.textContent.trim();
+    const visible = root.querySelector('*:not([aria-hidden="true"])');
+    if (visible && visible.textContent?.trim()) {
+      return visible.textContent.trim();
     }
 
     return null;
   }
 
+  // ----------------------------------------------------
   // Attach focus / blur / keydown / click listeners
+  // ----------------------------------------------------
   private attachListeners(target: HTMLElement, getText: () => string | null) {
 
     // Focus → show tooltip
@@ -104,7 +108,9 @@ export class TooltipDirective implements AfterViewInit, OnDestroy {
     );
   }
 
+  // ----------------------------------------------------
   // Create + show tooltip
+  // ----------------------------------------------------
   private showTooltip(target: HTMLElement, text: string) {
     this.hideTooltip(); // remove old tooltip
 
@@ -131,7 +137,9 @@ export class TooltipDirective implements AfterViewInit, OnDestroy {
     setTimeout(() => this.renderer.setStyle(this.tooltipEl, 'opacity', '1'), 10);
   }
 
+  // ----------------------------------------------------
   // Hide tooltip
+  // ----------------------------------------------------
   private hideTooltip() {
     if (this.animationFrameId) cancelAnimationFrame(this.animationFrameId);
     this.animationFrameId = null;
@@ -142,7 +150,9 @@ export class TooltipDirective implements AfterViewInit, OnDestroy {
     }
   }
 
+  // ----------------------------------------------------
   // Frame-synced tracking
+  // ----------------------------------------------------
   private startTracking(target: HTMLElement) {
     const update = () => {
       if (!this.tooltipEl) return;
@@ -152,7 +162,9 @@ export class TooltipDirective implements AfterViewInit, OnDestroy {
     update();
   }
 
+  // ----------------------------------------------------
   // Position tooltip (fixed + clamped + auto-flip)
+  // ----------------------------------------------------
   private positionTooltip(target: HTMLElement, tooltip: HTMLElement) {
     const rect = target.getBoundingClientRect();
     const tipRect = tooltip.getBoundingClientRect();
