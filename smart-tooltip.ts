@@ -7,7 +7,7 @@ import {
 } from '@angular/core';
 
 @Directive({
-  selector: '[tooltipDir]'
+  selector: '[tooltipDir], [title]'   // ← activates on title OR tooltipDir
 })
 export class TooltipDirective implements AfterViewInit, OnDestroy {
 
@@ -15,33 +15,49 @@ export class TooltipDirective implements AfterViewInit, OnDestroy {
   private animationFrameId: number | null = null;
   private listeners: Array<() => void> = [];
 
-  constructor(private el: ElementRef, private renderer: Renderer2) {}
+  constructor(private el: ElementRef, private renderer: Renderer2) {
+    // Debug: confirm directive is running
+    // console.log('TooltipDirective attached to:', this.el.nativeElement);
+  }
 
   ngAfterViewInit() {
     const native = this.el.nativeElement;
 
-    // Make anchor tags focusable
-    if (native.tagName === 'A' && !native.hasAttribute('tabindex')) {
+    // ----------------------------------------------------
+    // 1. SKIP INTERNAL / HIDDEN ELEMENTS
+    // ----------------------------------------------------
+    if (
+      native.hasAttribute('aria-hidden') ||
+      native.offsetParent === null // invisible
+    ) {
+      return;
+    }
+
+    // ----------------------------------------------------
+    // 2. MAKE ELEMENT FOCUSABLE IF IT ISN'T
+    // ----------------------------------------------------
+    const tag = native.tagName.toLowerCase();
+    const isNaturallyFocusable =
+      ['button', 'a', 'input', 'select', 'textarea'].includes(tag);
+
+    if (!isNaturallyFocusable && !native.hasAttribute('tabindex')) {
       this.renderer.setAttribute(native, 'tabindex', '0');
     }
 
     // ----------------------------------------------------
-    // 1. AG-GRID HEADER SUPPORT → attachListeners() called here
-    // ----------------------------------------------------
-    const headers = native.querySelectorAll('.ag-header-cell');
-    headers.forEach((header: HTMLElement) => {
-      this.attachListeners(header, () => {
-        return (
-          header.getAttribute('aria-label') ||
-          header.getAttribute('title')
-        );
-      });
-    });
-
-    // ----------------------------------------------------
-    // 2. NORMAL + CUSTOM COMPONENT SUPPORT → attachListeners() called here
+    // 3. ATTACH LISTENERS TO THIS ELEMENT
     // ----------------------------------------------------
     this.attachListeners(native, () => this.extractTooltipText(native));
+
+    // ----------------------------------------------------
+    // 4. SPECIAL CASE: Quest/PrimeNG dropdown trigger
+    // ----------------------------------------------------
+    const trigger = native.querySelector('.quest-dropdown-trigger');
+    if (trigger) {
+      this.attachListeners(trigger as HTMLElement, () =>
+        this.extractTooltipText(native)
+      );
+    }
   }
 
   // ----------------------------------------------------
@@ -62,11 +78,11 @@ export class TooltipDirective implements AfterViewInit, OnDestroy {
     const withAria = root.querySelector('[aria-label]');
     if (withAria) return withAria.getAttribute('aria-label');
 
-    // 4. PrimeNG / Quest-style <label class="sr-only">
+    // 4. Screen-reader label
     const sr = root.querySelector('.sr-only');
     if (sr && sr.textContent?.trim()) return sr.textContent.trim();
 
-    // 5. Fallback: visible text inside component
+    // 5. Fallback: visible text
     const visible = root.querySelector('*:not([aria-hidden="true"])');
     if (visible && visible.textContent?.trim()) {
       return visible.textContent.trim();
