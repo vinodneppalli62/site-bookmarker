@@ -84,3 +84,22 @@ private getGlobalRect(el: HTMLElement): DOMRect {
     height: rect.height
   } as DOMRect;
 }
+
+
+@media (forced-colors: active) {
+  dialog,
+  .cdk-overlay-container,
+  .cdk-overlay-pane,
+  .cdk-overlay-backdrop {
+    forced-color-adjust: none;
+    background-color: Canvas;
+    color: CanvasText;
+    border-color: CanvasText;
+  }
+
+  dialog * ,
+  .cdk-overlay-pane * {
+    forced-color-adjust: none;
+    color: CanvasText;
+  }
+}
