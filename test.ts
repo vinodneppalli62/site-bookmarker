@@ -1,6 +1,7 @@
 private positionTooltip(anchor: HTMLElement): void {
   if (!this.tooltipEl) return;
 
+  // Make tooltip measurable
   this.renderer.setStyle(this.tooltipEl, 'visibility', 'hidden');
   this.renderer.setStyle(this.tooltipEl, 'opacity', '1');
 
@@ -11,37 +12,35 @@ private positionTooltip(anchor: HTMLElement): void {
   const vh = window.innerHeight;
 
   // -----------------------------------------
-  // 1. ALWAYS TRY BOTTOM-RIGHT FIRST
+  // ALWAYS TRY BOTTOM-RIGHT FIRST
   // -----------------------------------------
   let top = rect.bottom + 4;
-  let left = rect.right;
+  let left = rect.right - tooltipRect.width;
 
-  // If tooltip fits on screen when placed to the right
-  if (left + tooltipRect.width <= vw) {
-    left = rect.right - tooltipRect.width; // align to right edge
+  // If bottom-right fits on screen → ALWAYS USE IT
+  if (left >= 0 && left + tooltipRect.width <= vw && top + tooltipRect.height <= vh) {
     return this.place(top, left);
   }
 
   // -----------------------------------------
-  // 2. FALLBACK → BOTTOM-LEFT
+  // ONLY IF BOTTOM-RIGHT FAILS → TRY BOTTOM-LEFT
   // -----------------------------------------
   left = rect.left;
-  if (left >= 0 && left + tooltipRect.width <= vw) {
+  if (left >= 0 && left + tooltipRect.width <= vw && top + tooltipRect.height <= vh) {
     return this.place(top, left);
   }
 
   // -----------------------------------------
-  // 3. FALLBACK → TOP-RIGHT
+  // ONLY IF BOTH BOTTOM POSITIONS FAIL → TRY TOP-RIGHT
   // -----------------------------------------
   top = rect.top - tooltipRect.height - 4;
-  left = rect.right;
-  if (left + tooltipRect.width <= vw && top >= 0) {
-    left = rect.right - tooltipRect.width;
+  left = rect.right - tooltipRect.width;
+  if (left >= 0 && left + tooltipRect.width <= vw && top >= 0) {
     return this.place(top, left);
   }
 
   // -----------------------------------------
-  // 4. FALLBACK → TOP-LEFT
+  // LAST FALLBACK → TOP-LEFT
   // -----------------------------------------
   left = rect.left;
   if (left >= 0 && left + tooltipRect.width <= vw && top >= 0) {
@@ -49,7 +48,7 @@ private positionTooltip(anchor: HTMLElement): void {
   }
 
   // -----------------------------------------
-  // 5. FINAL CLAMP
+  // FINAL CLAMP (never off-screen)
   // -----------------------------------------
   top = Math.max(0, Math.min(top, vh - tooltipRect.height));
   left = Math.max(0, Math.min(left, vw - tooltipRect.width));
