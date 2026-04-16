@@ -1,4 +1,4 @@
-scope.debugOverlay = function(anchor, tooltipEl, chosenPosition) {
+9scope.debugOverlay = function(anchor, tooltipEl, chosenPosition) {
 
     // Remove old overlays
     var old = document.querySelectorAll('.tooltip-debug-box');
@@ -49,3 +49,38 @@ scope.debugOverlay = function(anchor, tooltipEl, chosenPosition) {
     console.log('%c Tooltip Position Chosen: ' + chosenPosition,
         'color: purple; font-size: 14px; font-weight: bold');
 };
+
+
+
+
+private getGlobalRect(el: HTMLElement): DOMRect {
+  const rect = el.getBoundingClientRect();
+
+  // Detect if inside a transformed container (dialog)
+  let parent: HTMLElement | null = el.parentElement;
+  let offsetX = 0;
+  let offsetY = 0;
+
+  while (parent) {
+    const style = window.getComputedStyle(parent);
+    const hasTransform = style.transform !== 'none';
+
+    if (hasTransform) {
+      const pRect = parent.getBoundingClientRect();
+      offsetX += pRect.left;
+      offsetY += pRect.top;
+      break;
+    }
+
+    parent = parent.parentElement;
+  }
+
+  return {
+    top: rect.top + offsetY,
+    left: rect.left + offsetX,
+    right: rect.right + offsetX,
+    bottom: rect.bottom + offsetY,
+    width: rect.width,
+    height: rect.height
+  } as DOMRect;
+}
