@@ -17,38 +17,21 @@ private positionTooltip(anchor: HTMLElement): void {
   let top = rect.bottom + 4;
   let left = rect.right - tooltipRect.width;
 
-  // If bottom-right fits on screen → ALWAYS USE IT
-  if (left >= 0 && left + tooltipRect.width <= vw && top + tooltipRect.height <= vh) {
+  // If bottom-right fits anywhere on screen → ALWAYS USE IT
+  if (left + tooltipRect.width <= vw) {
     return this.place(top, left);
   }
 
   // -----------------------------------------
-  // ONLY IF BOTTOM-RIGHT FAILS → TRY BOTTOM-LEFT
+  // ONLY IF RIGHT IS IMPOSSIBLE → SHIFT LEFT JUST ENOUGH
   // -----------------------------------------
-  left = rect.left;
-  if (left >= 0 && left + tooltipRect.width <= vw && top + tooltipRect.height <= vh) {
+  left = vw - tooltipRect.width - 4; // align to screen right
+  if (left >= 0) {
     return this.place(top, left);
   }
 
   // -----------------------------------------
-  // ONLY IF BOTH BOTTOM POSITIONS FAIL → TRY TOP-RIGHT
-  // -----------------------------------------
-  top = rect.top - tooltipRect.height - 4;
-  left = rect.right - tooltipRect.width;
-  if (left >= 0 && left + tooltipRect.width <= vw && top >= 0) {
-    return this.place(top, left);
-  }
-
-  // -----------------------------------------
-  // LAST FALLBACK → TOP-LEFT
-  // -----------------------------------------
-  left = rect.left;
-  if (left >= 0 && left + tooltipRect.width <= vw && top >= 0) {
-    return this.place(top, left);
-  }
-
-  // -----------------------------------------
-  // FINAL CLAMP (never off-screen)
+  // LAST RESORT → CLAMP
   // -----------------------------------------
   top = Math.max(0, Math.min(top, vh - tooltipRect.height));
   left = Math.max(0, Math.min(left, vw - tooltipRect.width));
