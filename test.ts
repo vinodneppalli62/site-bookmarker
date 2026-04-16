@@ -1,22 +1,26 @@
 private applyTooltipStyle(anchor: HTMLElement): void {
   if (!this.tooltipEl) return;
 
+  // Force tooltip to be measurable
+  this.renderer.setStyle(this.tooltipEl, 'visibility', 'hidden');
+  this.renderer.setStyle(this.tooltipEl, 'opacity', '1');
+
   const rect = anchor.getBoundingClientRect();
+
+  // Now tooltip has content → measure AFTER text applied
   const tooltipRect = this.tooltipEl.getBoundingClientRect();
 
   const vw = window.innerWidth;
   const vh = window.innerHeight;
 
   // -----------------------------------------
-  // 1. DEFAULT POSITION → bottom-right
+  // 1. DEFAULT → bottom-right
   // -----------------------------------------
   let top = rect.bottom + 8;
   let left = rect.right - tooltipRect.width;
 
-  // Check if bottom-right fits
-  if (top + tooltipRect.height <= vh - 8 && left >= 8 && left + tooltipRect.width <= vw - 8) {
-    this.setTooltipPosition(top, left);
-    return;
+  if (this.fits(top, left, tooltipRect, vw, vh)) {
+    return this.place(top, left);
   }
 
   // -----------------------------------------
@@ -24,9 +28,8 @@ private applyTooltipStyle(anchor: HTMLElement): void {
   // -----------------------------------------
   left = rect.left;
 
-  if (top + tooltipRect.height <= vh - 8 && left >= 8 && left + tooltipRect.width <= vw - 8) {
-    this.setTooltipPosition(top, left);
-    return;
+  if (this.fits(top, left, tooltipRect, vw, vh)) {
+    return this.place(top, left);
   }
 
   // -----------------------------------------
@@ -35,9 +38,8 @@ private applyTooltipStyle(anchor: HTMLElement): void {
   top = rect.top - tooltipRect.height - 8;
   left = rect.right - tooltipRect.width;
 
-  if (top >= 8 && left >= 8 && left + tooltipRect.width <= vw - 8) {
-    this.setTooltipPosition(top, left);
-    return;
+  if (this.fits(top, left, tooltipRect, vw, vh)) {
+    return this.place(top, left);
   }
 
   // -----------------------------------------
@@ -45,20 +47,36 @@ private applyTooltipStyle(anchor: HTMLElement): void {
   // -----------------------------------------
   left = rect.left;
 
-  if (top >= 8 && left >= 8 && left + tooltipRect.width <= vw - 8) {
-    this.setTooltipPosition(top, left);
-    return;
+  if (this.fits(top, left, tooltipRect, vw, vh)) {
+    return this.place(top, left);
   }
 
   // -----------------------------------------
-  // 5. FINAL CLAMP (if all else fails)
+  // 5. FINAL CLAMP (last resort)
   // -----------------------------------------
   top = Math.max(8, Math.min(top, vh - tooltipRect.height - 8));
   left = Math.max(8, Math.min(left, vw - tooltipRect.width - 8));
 
-  this.setTooltipPosition(top, left);
+  this.place(top, left);
 }
-private setTooltipPosition(top: number, left: number): void {
+
+private fits(
+  top: number,
+  left: number,
+  tooltipRect: DOMRect,
+  vw: number,
+  vh: number
+): boolean {
+  return (
+    top >= 8 &&
+    left >= 8 &&
+    top + tooltipRect.height <= vh - 8 &&
+    left + tooltipRect.width <= vw - 8
+  );
+}
+
+private place(top: number, left: number): void {
   this.renderer.setStyle(this.tooltipEl!, 'top', `${top}px`);
   this.renderer.setStyle(this.tooltipEl!, 'left', `${left}px`);
+  this.renderer.setStyle(this.tooltipEl!, 'visibility', 'visible');
 }
