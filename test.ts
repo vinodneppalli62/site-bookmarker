@@ -12,27 +12,46 @@ private positionTooltip(anchor: HTMLElement): void {
   const vh = window.innerHeight;
 
   // -----------------------------------------
-  // ALWAYS POSITION TOOLTIP TO THE RIGHT SIDE
+  // ALWAYS TRY BOTTOM-RIGHT FIRST
   // -----------------------------------------
+  let top = rect.bottom + 4; // below the element
+  let left = rect.right - tooltipRect.width; // right-aligned
 
-  // Position tooltip to the right of the element
-  let left = rect.right + 8; // 8px gap
-  let top = rect.top;        // align to top of element
-
-  // If tooltip goes off the right edge → shift left just enough
-  if (left + tooltipRect.width > vw) {
-    left = vw - tooltipRect.width - 8;
+  // If bottom-right fits → ALWAYS USE IT
+  if (left >= 0 && left + tooltipRect.width <= vw && top + tooltipRect.height <= vh) {
+    return this.place(top, left);
   }
 
-  // If tooltip goes off the bottom → clamp
-  if (top + tooltipRect.height > vh) {
-    top = vh - tooltipRect.height - 8;
+  // -----------------------------------------
+  // FALLBACK → BOTTOM-LEFT (only if right fails)
+  // -----------------------------------------
+  left = rect.left;
+  if (left >= 0 && left + tooltipRect.width <= vw && top + tooltipRect.height <= vh) {
+    return this.place(top, left);
   }
 
-  // If tooltip goes above screen → clamp
-  if (top < 0) {
-    top = 8;
+  // -----------------------------------------
+  // FALLBACK → TOP-RIGHT
+  // -----------------------------------------
+  top = rect.top - tooltipRect.height - 4;
+  left = rect.right - tooltipRect.width;
+  if (left >= 0 && left + tooltipRect.width <= vw && top >= 0) {
+    return this.place(top, left);
   }
+
+  // -----------------------------------------
+  // FALLBACK → TOP-LEFT
+  // -----------------------------------------
+  left = rect.left;
+  if (left >= 0 && left + tooltipRect.width <= vw && top >= 0) {
+    return this.place(top, left);
+  }
+
+  // -----------------------------------------
+  // FINAL CLAMP (never off-screen)
+  // -----------------------------------------
+  top = Math.max(0, Math.min(top, vh - tooltipRect.height));
+  left = Math.max(0, Math.min(left, vw - tooltipRect.width));
 
   this.place(top, left);
 }
