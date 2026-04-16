@@ -11,45 +11,46 @@ private positionTooltip(anchor: HTMLElement): void {
   const vw = window.innerWidth;
   const vh = window.innerHeight;
 
-  // -----------------------------------------
-  // ALWAYS TRY BOTTOM-RIGHT FIRST
-  // -----------------------------------------
-  let top = rect.bottom + 4; // below the element
-  let left = rect.right - tooltipRect.width; // right-aligned
+  // ----------------------------------------------------
+  // 1. ALWAYS TRY TRUE BOTTOM-RIGHT (entire tooltip right)
+  // ----------------------------------------------------
+  let top = rect.bottom + 4; // below element
+  let left = rect.right;     // tooltip starts exactly at right edge
 
-  // If bottom-right fits → ALWAYS USE IT
-  if (left >= 0 && left + tooltipRect.width <= vw && top + tooltipRect.height <= vh) {
+  // If tooltip fits fully on screen → ALWAYS USE THIS
+  if (left + tooltipRect.width <= vw && top + tooltipRect.height <= vh) {
     return this.place(top, left);
   }
 
-  // -----------------------------------------
-  // FALLBACK → BOTTOM-LEFT (only if right fails)
-  // -----------------------------------------
-  left = rect.left;
-  if (left >= 0 && left + tooltipRect.width <= vw && top + tooltipRect.height <= vh) {
+  // ----------------------------------------------------
+  // 2. If it overflows right, shift left JUST ENOUGH
+  //    (still bottom-right relative to screen)
+  // ----------------------------------------------------
+  left = vw - tooltipRect.width - 4;
+  if (left >= rect.right) {
     return this.place(top, left);
   }
 
-  // -----------------------------------------
-  // FALLBACK → TOP-RIGHT
-  // -----------------------------------------
+  // ----------------------------------------------------
+  // 3. If bottom doesn't fit, try TOP-RIGHT
+  // ----------------------------------------------------
   top = rect.top - tooltipRect.height - 4;
-  left = rect.right - tooltipRect.width;
-  if (left >= 0 && left + tooltipRect.width <= vw && top >= 0) {
+  left = rect.right;
+  if (top >= 0 && left + tooltipRect.width <= vw) {
     return this.place(top, left);
   }
 
-  // -----------------------------------------
-  // FALLBACK → TOP-LEFT
-  // -----------------------------------------
-  left = rect.left;
-  if (left >= 0 && left + tooltipRect.width <= vw && top >= 0) {
+  // ----------------------------------------------------
+  // 4. If top-right overflows, shift left just enough
+  // ----------------------------------------------------
+  left = vw - tooltipRect.width - 4;
+  if (top >= 0) {
     return this.place(top, left);
   }
 
-  // -----------------------------------------
-  // FINAL CLAMP (never off-screen)
-  // -----------------------------------------
+  // ----------------------------------------------------
+  // 5. FINAL CLAMP (never off-screen)
+  // ----------------------------------------------------
   top = Math.max(0, Math.min(top, vh - tooltipRect.height));
   left = Math.max(0, Math.min(left, vw - tooltipRect.width));
 
