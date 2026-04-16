@@ -1,0 +1,51 @@
+scope.debugOverlay = function(anchor, tooltipEl, chosenPosition) {
+
+    // Remove old overlays
+    var old = document.querySelectorAll('.tooltip-debug-box');
+    for (var i = 0; i < old.length; i++) old[i].remove();
+
+    function drawBox(rect, color, label) {
+        var box = document.createElement('div');
+        box.className = 'tooltip-debug-box';
+        box.style.position = 'fixed';
+        box.style.top = rect.top + 'px';
+        box.style.left = rect.left + 'px';
+        box.style.width = rect.width + 'px';
+        box.style.height = rect.height + 'px';
+        box.style.border = '2px solid ' + color;
+        box.style.zIndex = 999999999;
+        box.style.pointerEvents = 'none';
+        box.style.boxSizing = 'border-box';
+        box.style.background = 'rgba(0,0,0,0.05)';
+
+        var labelDiv = document.createElement('div');
+        labelDiv.style.position = 'absolute';
+        labelDiv.style.top = '-18px';
+        labelDiv.style.left = '0';
+        labelDiv.style.color = color;
+        labelDiv.style.fontSize = '12px';
+        labelDiv.style.fontWeight = 'bold';
+        labelDiv.textContent = label;
+
+        box.appendChild(labelDiv);
+        document.body.appendChild(box);
+    }
+
+    // Draw anchor box
+    drawBox(anchor.getBoundingClientRect(), 'red', 'ANCHOR');
+
+    // Draw tooltip box
+    drawBox(tooltipEl.getBoundingClientRect(), 'blue', 'TOOLTIP');
+
+    // Draw viewport edges
+    drawBox({
+        top: 0,
+        left: 0,
+        width: window.innerWidth,
+        height: window.innerHeight
+    }, 'green', 'VIEWPORT');
+
+    // Show chosen position
+    console.log('%c Tooltip Position Chosen: ' + chosenPosition,
+        'color: purple; font-size: 14px; font-weight: bold');
+};
