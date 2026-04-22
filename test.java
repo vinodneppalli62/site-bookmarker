@@ -92,3 +92,59 @@ public class CustomLocalDateTimeSerializer extends JsonSerializer<LocalDateTime>
         gen.writeString(stateZdt.format(FORMATTER));
     }
 }
+
+
+@Component
+public class CustomLocalDateTimeDeserializer extends JsonDeserializer<LocalDateTime> {
+
+    private static final DateTimeFormatter FORMATTER =
+            DateTimeFormatter.ofPattern("MM/dd/yyyy HH:mm:ss");
+
+    @Inject
+    private QuestLocalDateTime timeZoneResolver;
+
+    @Override
+    public LocalDateTime deserialize(JsonParser jp, DeserializationContext ctxt)
+            throws IOException {
+
+        JsonToken token = jp.getCurrentToken();
+
+        // ---------------------------------------------------------
+        // CASE 1: Epoch Millis (ALWAYS UTC)
+        // ---------------------------------------------------------
+        if (token == JsonToken.VALUE_NUMBER_INT) {
+            long epochMillis = jp.getLongValue();
+
+            return Instant.ofEpochMilli(epochMillis)
+                    .atZone(ZoneOffset.UTC)
+                    .toLocalDateTime();
+        }
+
+        // ---------------------------------------------------------
+        // CASE 2: String Timestamp (UI timezone → UTC)
+        // ---------------------------------------------------------
+        if (token == JsonToken.VALUE_STRING) {
+            String text = jp.getText().trim();
+
+            if (text.isEmpty()) {
+                return null;
+            }
+
+            // Parse UI timestamp
+            LocalDateTime local = LocalDateTime.parse(text, FORMATTER);
+
+            // Resolve UI/state timezone (CST, PST, AZ, HI, etc.)
+            ZoneId uiZone = timeZoneResolver.resolveZone();
+
+            // Interpret UI timestamp in UI timezone
+            ZonedDateTime uiZdt = local.atZone(uiZone);
+
+            // Convert UI timezone → UTC for DB storage
+            ZonedDateTime utc = uiZdt.withZoneSameInstant(ZoneOffset.UTC);
+
+            return utc.toLocalDateTime();
+        }
+
+        throw new IOException("Unsupported timestamp format: " + token);
+    }
+}
