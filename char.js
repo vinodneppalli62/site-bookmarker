@@ -1,82 +1,36 @@
-import { Directive, HostListener, Optional } from '@angular/core';
-import { NgModel, FormControlName } from '@angular/forms';
-import { DataShareService } from './data-share.service';
-import { Constants } from './constants';
-import { CommonValidationService } from './common-validation.service';
+@HostListener('paste', ['$event'])
+onPaste(event: ClipboardEvent) {
+  const input = event.target as HTMLInputElement;
+  const max = Number(input.getAttribute('maxlength'));
 
-@Directive({
-  selector: '[appInvalidCharValidator]'
-})
-export class InvalidCharValidatorDirective {
+  const pasted = event.clipboardData?.getData('text') || '';
 
-  regexPattern!: RegExp;
+  const start = input.selectionStart || 0;
+  const end = input.selectionEnd || 0;
 
-  constructor(
-    @Optional() private ngModel: NgModel,
-    @Optional() private formControlName: FormControlName,
-    private dataShareService: DataShareService,
-    private constants: Constants,
-    private commonValidationService: CommonValidationService
-  ) {
-    this.regexPattern = new RegExp(this.constants.getConstantValue('invalidCharRegex'));
+  const newValue =
+    input.value.substring(0, start) +
+    pasted +
+    input.value.substring(end);
+
+  // ❌ If new value exceeds maxlength → block paste entirely
+  if (!isNaN(max) && newValue.length > max) {
+    event.preventDefault();
+    return;
   }
 
-  @HostListener('paste', ['$event'])
-  onPaste(event: ClipboardEvent) {
+  // ✅ Otherwise allow paste but manually apply it
+  event.preventDefault();
+  input.value = newValue;
 
-    let pastedData = event.clipboardData?.getData('text') || '';
+  if (this.ngModel) {
+    this.ngModel.control.setValue(newValue);
+    this.ngModel.control.markAsTouched();
+  }
 
-    var windowsLineEndingRegExp = new RegExp("\r\n");
-    var windowsLineEndingRegExpEnd = new RegExp("(\r\n)*\r\n$");
-
-    if (windowsLineEndingRegExp.test(pastedData)) {
-      pastedData = pastedData.replace(windowsLineEndingRegExpEnd, "");
-      pastedData = pastedData.replace(windowsLineEndingRegExp, " ");
-    }
-
-    const invalidChars = [...pastedData].filter(char => !this.regexPattern.test(char));
-
-    event.preventDefault();
-
-    if (invalidChars.length > 0) {
-      this.dataShareService.invokeAccountHeaderShowAlert({
-        severity: 'warn',
-        detail: 'Invalid character found, cannot paste.'
-      });
-    } else {
-
-      // ---------------------------------------------------
-      // NEW: MAXLENGTH ENFORCEMENT (added exactly here)
-      // ---------------------------------------------------
-      const target = event.target as HTMLInputElement;
-      const max = parseInt(target.getAttribute('maxlength') || '', 10);
-
-      if (!isNaN(max)) {
-        pastedData = pastedData.substring(0, max);
-      }
-
-      pastedData = this.commonValidationService.replaceExtendedAsciiValues(pastedData);
-
-      const start = target.selectionStart || 0;
-      const end = target.selectionEnd || 0;
-
-      const newValue =
-        target.value.substring(0, start) +
-        pastedData +
-        target.value.substring(end);
-
-      target.value = newValue;
-
-      if (this.ngModel) {
-        this.ngModel.control.setValue(newValue);
-        this.ngModel.control.markAsTouched();
-      }
-
-      if (this.formControlName) {
-        this.formControlName.control.setValue(newValue);
-        this.formControlName.control.markAsTouched();
-        this.formControlName.control.markAsDirty();
-      }
-    }
+  if (this.formControlName) {
+    this.formControlName.control.setValue(newValue);
+    this.formControlName.control.markAsTouched();
+    this.formControlName.control.markAsDirty();
   }
 }
