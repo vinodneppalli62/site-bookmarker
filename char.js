@@ -1,71 +1,82 @@
-(function () {
-    'use strict';
+import { Directive, HostListener, Optional } from '@angular/core';
+import { NgModel, FormControlName } from '@angular/forms';
+import { DataShareService } from './data-share.service';
+import { Constants } from './constants';
+import { CommonValidationService } from './common-validation.service';
 
-    angular.module("questApp").directive('invalidCharValidator', invalidCharValidator);
-    invalidCharValidator.$inject = ['$rootScope', "Constants", "appData"];
+@Directive({
+  selector: '[appInvalidCharValidator]'
+})
+export class InvalidCharValidatorDirective {
 
-    function invalidCharValidator($rootScope, Constants, appData) {
-        return {
-            restrict: 'A',
-            require: 'ngModel',
-            link: function (scope, element, attrs, ngModel) {
+  regexPattern!: RegExp;
 
-                if (!ngModel) return;
+  constructor(
+    @Optional() private ngModel: NgModel,
+    @Optional() private formControlName: FormControlName,
+    private dataShareService: DataShareService,
+    private constants: Constants,
+    private commonValidationService: CommonValidationService
+  ) {
+    this.regexPattern = new RegExp(this.constants.getConstantValue('invalidCharRegex'));
+  }
 
-                element[0].addEventListener("paste", function (event) {
+  @HostListener('paste', ['$event'])
+  onPaste(event: ClipboardEvent) {
 
-                    var pastedData = event.clipboardData.getData("text") || "";
+    let pastedData = event.clipboardData?.getData('text') || '';
 
-                    // cells copied from Excel contain trailing CR/LF
-                    var windowsLineEndingRegExp = new RegExp("\r\n");
-                    var windowsLineEndingRegExpEnd = new RegExp("(\r\n)*\r\n$");
+    var windowsLineEndingRegExp = new RegExp("\r\n");
+    var windowsLineEndingRegExpEnd = new RegExp("(\r\n)*\r\n$");
 
-                    if (windowsLineEndingRegExp.test(pastedData)) {
-                        // remove trailing CR/LF
-                        pastedData = pastedData.replace(windowsLineEndingRegExpEnd, "");
-                        // replace CR/LF in the middle with space
-                        pastedData = pastedData.replace(windowsLineEndingRegExp, " ");
-                    }
-
-                    var invalidChars = pastedData.split("").filter(function (char) {
-                        return !Constants.invalidCharRegex.test(char);
-                    });
-
-                    event.preventDefault();
-
-                    if (invalidChars.length > 0) {
-                        $rootScope.$broadcast("DISPLAY_MSG", {
-                            msg: 'Invalid character found, cannot paste.',
-                            type: 'warning',
-                            showAlert: true
-                        });
-                    } else {
-
-                        // ---------------------------------------------------
-                        // NEW: MAXLENGTH ENFORCEMENT
-                        // ---------------------------------------------------
-                        var max = parseInt(attrs.maxlength, 10);
-                        if (!isNaN(max)) {
-                            pastedData = pastedData.substring(0, max);
-                        }
-
-                        pastedData = appData.replaceExtendedAsciiValues(pastedData);
-
-                        var target = event.target;
-                        var start = target.selectionStart || 0;
-                        var end = target.selectionEnd || 0;
-
-                        var newValue =
-                            target.value.substring(0, start) +
-                            pastedData +
-                            target.value.substring(end);
-
-                        target.value = newValue;
-                        ngModel.$setViewValue(newValue);
-                        ngModel.$render();
-                    }
-                });
-            }
-        };
+    if (windowsLineEndingRegExp.test(pastedData)) {
+      pastedData = pastedData.replace(windowsLineEndingRegExpEnd, "");
+      pastedData = pastedData.replace(windowsLineEndingRegExp, " ");
     }
-})();
+
+    const invalidChars = [...pastedData].filter(char => !this.regexPattern.test(char));
+
+    event.preventDefault();
+
+    if (invalidChars.length > 0) {
+      this.dataShareService.invokeAccountHeaderShowAlert({
+        severity: 'warn',
+        detail: 'Invalid character found, cannot paste.'
+      });
+    } else {
+
+      // ---------------------------------------------------
+      // NEW: MAXLENGTH ENFORCEMENT (added exactly here)
+      // ---------------------------------------------------
+      const target = event.target as HTMLInputElement;
+      const max = parseInt(target.getAttribute('maxlength') || '', 10);
+
+      if (!isNaN(max)) {
+        pastedData = pastedData.substring(0, max);
+      }
+
+      pastedData = this.commonValidationService.replaceExtendedAsciiValues(pastedData);
+
+      const start = target.selectionStart || 0;
+      const end = target.selectionEnd || 0;
+
+      const newValue =
+        target.value.substring(0, start) +
+        pastedData +
+        target.value.substring(end);
+
+      target.value = newValue;
+
+      if (this.ngModel) {
+        this.ngModel.control.setValue(newValue);
+        this.ngModel.control.markAsTouched();
+      }
+
+      if (this.formControlName) {
+        this.formControlName.control.setValue(newValue);
+        this.formControlName.control.markAsTouched();
+        this.formControlName.control.markAsDirty();
+      }
+    }
+  }
+}
